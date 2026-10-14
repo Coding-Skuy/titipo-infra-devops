@@ -1,8 +1,7 @@
 # 40-TECHSTACK — titipo-infra-devops
 
-STATUS: defined pending (target dikunci, implementasi menunggu).
-
-Mengacu: TitipO-TownHall v1.0.0
+> Versi: v1.0.0 | Status: disetujui | Menggantikan: -
+> Acuan: [TitipO-TownHall platform/versions/v1.0.0](https://github.com/Coding-Skuy/TitipO-TownHall/tree/main/platform/versions/v1.0.0) (BRD/PRD/FRD/FSD/SRS beku 2026-10-07).
 
 ## 1. Target stack
 
