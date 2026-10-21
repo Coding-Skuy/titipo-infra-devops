@@ -1,0 +1,5 @@
+# Backup DB titipo harian 03.00 (TTP-OPS-004). Pasang di /etc/cron.d/titipo-backup (user: postgres atau akun backup).
+# ASUMSI: zona waktu WIB (Asia/Jakarta); dokumen sumber hanya menulis "03.00" tanpa zona.
+# DATABASE_URL dibaca dari file env milik root (chmod 600) di luar repo; JANGAN ditulis di sini.
+CRON_TZ=Asia/Jakarta
+0 3 * * * titipo . /etc/titipo/backup.env && /opt/titipo/current/scripts/backup/backup-db.sh >> /var/log/titipo/backup.log 2>&1
