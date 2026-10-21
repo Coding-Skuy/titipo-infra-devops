@@ -1,0 +1,38 @@
+# QA gate (SRS/40-acceptance-criteria.md QA-001..QA-004) untuk repo ini sendiri.
+# Repo lain memanggil tiga pipeline reusable lalu menandai job gerbangnya sebagai
+# required status check pada branch protection `main` (pengaturan repo = usulan di ADR-0002,
+# bukan diubah dari sini).
+name: qa-gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  uji-skrip-dan-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: actionlint
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          ./actionlint -color
+      - name: yamllint
+        run: pip install --quiet yamllint && yamllint -c .yamllint.yml .github
+      - name: Uji skrip
+        run: |
+          for t in scripts/*/tests/test-*.sh; do echo "== $t"; bash "$t"; done
+
+  qa-gate:
+    # Job inilah yang dijadikan required check.
+    needs: [uji-skrip-dan-lint]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gagal bila ada prasyarat merah
+        run: |
+          [ "${{ needs.uji-skrip-dan-lint.result }}" = "success" ] || { echo "QA gate MERAH"; exit 1; }

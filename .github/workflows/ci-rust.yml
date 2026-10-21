@@ -1,0 +1,84 @@
+# Pipeline 2: cargo test backend (titipo-backend-service). Reusable.
+# TTP-OPS-002 / ci/build-rust-web.md. QA-002: test merah = build gagal, tanpa skip.
+name: ci-rust
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        type: string
+        default: "."
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory || '.' }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres  # kredensial DB sementara CI saja, bukan rahasia
+          POSTGRES_DB: titipo_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/titipo_ci
+      SQLX_OFFLINE: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      # #[sqlx::test] membuat DB sendiri per test dari DATABASE_URL; tidak ada --skip / --ignored.
+      - run: cargo test --all-targets
+      - run: cargo build --release
+
+  # QA-004: coverage dilacak per sprint (target >80% path kritis). Tidak memblokir merge.
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory || '.' }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: titipo_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/titipo_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Ringkasan coverage
+        run: |
+          cargo llvm-cov --summary-only | tee coverage-summary.txt
+          { echo '### Coverage (target >80% path kritis, QA-004)'; echo '```'; cat coverage-summary.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-summary
+          path: "${{ inputs.working-directory || '.' }}/coverage-summary.txt"
+          retention-days: 30

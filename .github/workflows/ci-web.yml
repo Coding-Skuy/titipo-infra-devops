@@ -1,0 +1,40 @@
+# Pipeline 3: bun install + cek tipe strict + build (titipo-web). Reusable.
+# TTP-OPS-002 / ci/build-rust-web.md.
+name: ci-web
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        type: string
+        default: "."
+      bun-version:
+        type: string
+        default: "latest"  # ASUMSI: techstack menulis "Bun 1.4.x latest"; ganti ke "1.4.x" bila ingin dikunci
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bun-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory || '.' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ inputs.bun-version || 'latest' }}
+      - run: bun install --frozen-lockfile
+      # `check` = svelte-check; strict TS diwajibkan lewat "strict": true di tsconfig repo web.
+      - run: bun run check
+      - run: bun test
+      - run: bun run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: "${{ inputs.working-directory || '.' }}/build"
+          retention-days: 7
