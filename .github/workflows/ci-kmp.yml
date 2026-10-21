@@ -1,0 +1,50 @@
+# Pipeline 1: build KMP (titipo-app-kmp). Reusable: dipanggil dari repo app.
+# TTP-OPS-002 / ci/build-kmp.md. Tanpa secret: hanya build debug + verifikasi pin.
+name: ci-kmp
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        type: string
+        default: "17"
+      working-directory:
+        type: string
+        default: "."
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-kmp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory || '.' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ambil skrip verifikasi pin dari titipo-infra-devops
+        uses: actions/checkout@v4
+        with:
+          repository: Coding-Skuy/titipo-infra-devops
+          path: .infra
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version || '17' }}
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10"
+      - name: Verifikasi pin versi (Kotlin 2.2.20, Compose 1.8.2, Navigation3 1.0.0, AGP 8.5.2)
+        run: bash "$GITHUB_WORKSPACE/.infra/scripts/ci/verify-kmp-pins.sh" gradle/libs.versions.toml
+      - name: Uji unit
+        run: gradle test --stacktrace
+      - name: Build APK debug
+        run: gradle :composeApp:assembleDebug --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk-debug
+          path: "${{ inputs.working-directory || '.' }}/composeApp/build/outputs/apk/debug/*.apk"
+          retention-days: 7
